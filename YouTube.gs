@@ -5,8 +5,9 @@
 // スプレッドシートにメニュー追加
 function onOpen() {
   var entries = [
-    {name: "listByChannelId", functionName: "listByChannelId"},
-    {name: "listByPlaylistId", functionName: "listByPlaylistId"}
+    {name: "チャンネルの動画をリストアップ", functionName: "listByChannelId"},
+    {name: "プレイリストの動画をリストアップ", functionName: "listByPlaylistId"},
+    {name: "チャンネルとプレイリストの最近10日以内の動画をリストアップ", functionName: "listByChannelorPlaylistId"}
     ];
   SpreadsheetApp.getActiveSpreadsheet().addMenu("YouTube", entries);
 }
@@ -18,8 +19,7 @@ function listByChannelId() {
   var value = sheet.getActiveCell().getValue();
   mylog("activeCellValue=" + value);
 
-  var videoItems = getVideosFromChannel(value);
-  appendLines(sheet, videoItems);  
+  appendLines(sheet, 2, getVideosFromChannel(value));
 }
 
 // playlistIdからvideoリストをつくる
@@ -29,12 +29,36 @@ function listByPlaylistId() {
   var value = sheet.getActiveCell().getValue();
   mylog("activeCellValue=" + value);
 
-  var videoItems = getVideos(value);
-  appendLines(sheet, videoItems);  
+  appendLines(sheet, 2, getVideosFromPlaylistId(value));
 }
 
-function appendLines(sheet, videoItems) {
-  var line = 1;
+// channdlIdまたはPlaylistIdのリストからvideoリストをつくる
+// アクティブなセルの文字列リストを読み取り、2行目からリストを生成する
+// "PL"から始まる文字列の際にPlaylistIdと判断し、それ以外をchannelIdとする
+function listByChannelorPlaylistId() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var values = sheet.getActiveRange().getValues();
+  mylog("activeCellValues.Count=" + values.length);
+
+  var line = 2;
+  for (var i = 0; i < values.length; i++) {
+    var id = values[i] + "";
+    mylog("id=" + id);
+
+    // 最近10daysに絞る
+    var date10DaysAgo = new Date();
+    date10DaysAgo.setDate(date10DaysAgo.getDate() - 10);
+
+    if (id.indexOf("PL") === 0) { // Playlist id
+      line = appendLines(sheet, line, getVideosFromPlaylistId(id, date10DaysAgo));
+    } else { // Channel id
+      line = appendLines(sheet, line, getVideosFromChannel(id, date10DaysAgo));
+    }
+  }
+}
+
+function appendLines(sheet, startLine, videoItems) {
+  var line = startLine;
   for (var j = 0; j < videoItems.length; j++) {
     var video = videoItems[j];
     if (video != null) {
@@ -43,11 +67,12 @@ function appendLines(sheet, videoItems) {
         public = false;
       }
       if (public) {
-        line++;
         appendLine(sheet, line, video);
+        line++;
       }
     }
   }
+  return line;
 }
 
 function appendLine(sheet, line, video) {
@@ -61,50 +86,81 @@ function appendLine(sheet, line, video) {
   }
   if (video.contentDetails != null) {
     // 動画公開日、PlaylistItems APIではcontentDetails.videoPublishedAtで取得できる。
-    // snippet.publishedAtはプレイリストへの追加日なことに注意。
+    // snippet.publishedAtはプレイリストへの追加日で違うので上書きする。
     date = Utilities.formatDate(new Date(video.contentDetails.videoPublishedAt), "JST", "yyyy/MM/dd");
     videoId = video.contentDetails.videoId;
   }
-  sheet.getRange(line, 1).setValue(date);
+  var col = 4;
+  sheet.getRange(line, col).setValue(date);
   var imageUrl = snippet.thumbnails["default"].url;
-  sheet.getRange(line, 2).setValue("=IMAGE(\"" + imageUrl + "\")"); // セル内に画像を貼る
-  sheet.getRange(line, 3).setValue(snippet.title);
-  sheet.getRange(line, 4).setValue("https://www.youtube.com/watch?v=" + videoId);
+  sheet.getRange(line, col + 1).setValue("=IMAGE(\"" + imageUrl + "\")"); // セル内に画像を貼る
+  sheet.getRange(line, col + 2).setValue(snippet.title);
+  sheet.getRange(line, col + 3).setValue("https://www.youtube.com/watch?v=" + videoId);
+  // note
+  var nowDate = Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd");
+  sheet.getRange(line, col + 5).setValue(nowDate); // register date
+  sheet.getRange(line, col + 6).setValue("\n\n\n"); // dummy \n x3
 }
     
-function getVideosFromChannel(channelId) {
+function getVideosFromChannel(channelId, publishedAfterDate) {  
   var nextToken = "";
-  var items = [];
+  var items = []
+
+  var publishedAfter = "";
+  if (publishedAfterDate != null){
+    publishedAfter = publishedAfterDate.toISOString();
+    mylog("publishedAfter=" + publishedAfter);
+  }
+
   while (nextToken != null) { 
-   var res = YouTube.Search.list('id,snippet',{
-      maxResults: 50,
-      order: `date`,
-      type: `video`, // 指定しないとchannelやplaylistもとれてしまう
-      channelId: channelId,
-      pageToken: nextToken
-    });
-    for (var i = 0; i < res.items.length; i++) {
-      items.push(res.items[i]);
+    try {
+      var res = YouTube.Search.list('id,snippet',{
+        maxResults: 50,
+        publishedAfter: publishedAfter,
+        order: `date`,
+        type: `video`, // 指定しないとchannelやplaylistもとれてしまう
+        channelId: channelId,
+        pageToken: nextToken
+      });
+      for (var i = 0; i < res.items.length; i++) {
+        items.push(res.items[i]);
+      }
+      nextToken = res.nextPageToken;      
+    } catch(e) {
+      mylog(e);
+      break;
     }
-    nextToken = res.nextPageToken;
   }
   mylog("channelId=" + channelId + " count=" + items.length);
   return items;
 }
 
-function getVideos(playlistId) {
+function getVideosFromPlaylistId(playlistId, publishedAfterDate) {
   var nextToken = "";
   var items = [];
-  while (nextToken != null) { 
-   var res = YouTube.PlaylistItems.list('snippet,status,contentDetails',{
-      maxResults: 50,
-      playlistId: playlistId,
-      pageToken: nextToken
-    });
-    for (var i = 0; i < res.items.length; i++) {
-      items.push(res.items[i]);
-    }
-    nextToken = res.nextPageToken;
+  while (nextToken != null) {
+   try {
+    var res = YouTube.PlaylistItems.list('snippet,status,contentDetails',{
+        maxResults: 50,
+        playlistId: playlistId,
+        pageToken: nextToken
+      });
+      for (var i = 0; i < res.items.length; i++) {
+        // publishedAfterDateが指定されていたら、それより前の動画は追加しない
+        if (publishedAfterDate != null) {
+          var videoPublishedDate = new Date(res.items[i].contentDetails.videoPublishedAt);
+          if (publishedAfterDate > videoPublishedDate){
+            mylog ("skip, old videoPublishedAt=" + videoPublishedDate);
+            continue;
+          }
+        }        
+        items.push(res.items[i]);
+      }
+      nextToken = res.nextPageToken;
+   } catch(e) {
+     mylog(e);
+     break;
+   }
   }
   mylog("playlistId=" + playlistId + " count=" + items.length);
   return items;
@@ -116,3 +172,4 @@ function mylog(value) {
   var sheet = ss.getSheetByName("log");
   sheet.appendRow([new Date(), value]);
 }
+
