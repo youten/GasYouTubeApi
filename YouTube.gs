@@ -106,7 +106,7 @@ function getVideosFromChannel(channelId, publishedAfterDate) {
   var nextToken = "";
   var items = []
 
-  var publishedAfter = "";
+  var publishedAfter = "2000-01-01T00:00:00Z";
   if (publishedAfterDate != null){
     publishedAfter = publishedAfterDate.toISOString();
     mylog("publishedAfter=" + publishedAfter);
