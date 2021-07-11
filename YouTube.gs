@@ -67,8 +67,10 @@ function appendLines(sheet, startLine, videoItems) {
         public = false;
       }
       if (public) {
-        appendLine(sheet, line, video);
-        line++;
+        var result = appendLine(sheet, line, video);
+        if (result) {
+          line++;
+        }
       }
     }
   }
@@ -77,6 +79,9 @@ function appendLines(sheet, startLine, videoItems) {
 
 function appendLine(sheet, line, video) {
   var snippet = video.snippet;
+  if (!snippet.thumbnails["default"] || !snippet.thumbnails["default"].url || snippet.title == "Deleted video") {
+    return false;
+  }
   mylog(snippet.title);
   var videoId = "";
   // 動画公開日、Search APIではsnippet.publishedAtで取得できる
@@ -99,7 +104,7 @@ function appendLine(sheet, line, video) {
   // note
   var nowDate = Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd");
   sheet.getRange(line, col + 5).setValue(nowDate); // register date
-  sheet.getRange(line, col + 6).setValue("\n\n\n"); // dummy \n x3
+  sheet.getRange(line, col + 6).setValue("\n\n\n\n"); // dummy \n x
 }
     
 function getVideosFromChannel(channelId, publishedAfterDate) {  
