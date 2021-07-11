@@ -105,6 +105,7 @@ function appendLine(sheet, line, video) {
   var nowDate = Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd");
   sheet.getRange(line, col + 5).setValue(nowDate); // register date
   sheet.getRange(line, col + 6).setValue("\n\n\n\n"); // dummy \n x
+  return true;
 }
     
 function getVideosFromChannel(channelId, publishedAfterDate) {  
@@ -177,4 +178,3 @@ function mylog(value) {
   var sheet = ss.getSheetByName("log");
   sheet.appendRow([new Date(), value]);
 }
-
