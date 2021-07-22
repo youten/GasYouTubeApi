@@ -108,7 +108,7 @@ function appendLine(sheet, line, video) {
   return true;
 }
     
-function getVideosFromChannel(channelId, publishedAfterDate) {  
+function getVideosFromChannel(channelId, publishedAfterDate) {
   var nextToken = "";
   var items = []
 
@@ -129,6 +129,11 @@ function getVideosFromChannel(channelId, publishedAfterDate) {
         pageToken: nextToken
       });
       for (var i = 0; i < res.items.length; i++) {
+        // liveBroadcastContent:"upcoming" はプレミア公開前なので除外
+        if (res.items[i].snippet.liveBroadcastContent === "upcoming") {
+          mylog ("skip, upcoming title=" + res.items[i].snippet.title);
+          continue;
+        }
         items.push(res.items[i]);
       }
       nextToken = res.nextPageToken;      
@@ -156,10 +161,10 @@ function getVideosFromPlaylistId(playlistId, publishedAfterDate) {
         if (publishedAfterDate != null) {
           var videoPublishedDate = new Date(res.items[i].contentDetails.videoPublishedAt);
           if (publishedAfterDate > videoPublishedDate){
-            mylog ("skip, old videoPublishedAt=" + videoPublishedDate);
+            mylog ("skip, old videoPublishedAt=" + videoPublishedDate + " title=" + res.items[i].snippet.title);
             continue;
           }
-        }        
+        }
         items.push(res.items[i]);
       }
       nextToken = res.nextPageToken;
