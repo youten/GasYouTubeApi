@@ -7,9 +7,77 @@ function onOpen() {
   var entries = [
     {name: "チャンネルの動画をリストアップ", functionName: "listByChannelId"},
     {name: "プレイリストの動画をリストアップ", functionName: "listByPlaylistId"},
-    {name: "チャンネルとプレイリストの最近10日以内の動画をリストアップ", functionName: "listByChannelorPlaylistId"}
+    {name: "チャンネルとプレイリストの最近10日以内の動画をリストアップ", functionName: "listByChannelorPlaylistId"},
+    {name: "HTML1セル生成", functionName: "generateMusicHtml"},
+    {name: "選択範囲を結合コピー", functionName: "concatRangeTextTo2N"},
     ];
   SpreadsheetApp.getActiveSpreadsheet().addMenu("YouTube", entries);
+}
+
+// 選択された行からHTMLを1セル生成する
+// 8:urlYouTubeMusic
+// 2:name
+// 3:urlReality
+// 4:urlTwitter
+// 5:urlYouTubeChannel
+// 6:publishDate
+// 9:title
+// 13:html
+function generateMusicHtml() {
+  // 1曲分のcolな部分HTML文字列の構成要素
+  const HTML_PREFIX_URL_YOUTUBE_MUSIC = "<div class=\"col\"> <div class=\"card shadow-sm\"> <div class=\"ratio ratio-16x9\"> <iframe src=\"https://www.youtube.com/embed/";
+  const HTML_PREFIX_TITLE = "?controls=0\" frameborder=\"0\" allow=\"accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen></iframe> </div> <div class=\"card-body\"><p class=\"card-text\">";
+  const HTML_PREFIX_NAME = "<br><small class=\"text-muted\">";
+  const HTML_PREFIX_URL_REALITY = "</small></p> <div class=\"d-flex justify-content-between align-items-center\"> <div class=\"btn-group\">\n<a href=\"";
+  const HTML_PREFIX_URL_TWITTER = "\"><img src=\"./img/icon-reality.png\"></a> <a href=\"";
+  const HTML_PREFIX_URL_YOUTUBE_CHANNEL = "\"><img src=\"./img/icon-twitter.png\"></a> <a href=\"";
+  const HTML_PREFIX_PUBLISH_DATE = "\"><img src=\"./img/icon-youtube.png\"></a> </div><small class=\"text-muted\">";
+  const HTML_SUFFIX = "</small></div></div></div></div>\n\n";
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var range = sheet.getActiveRange();
+  var firstLine = range.getRow(); // 先頭行番号
+  var rows = range.getNumRows(); // 行数
+  mylog("generateMusicHtml() start line=" + line + " rows=" + rows);
+
+  for (var line = firstLine; line < firstLine + rows; line++) {
+    var publishDate = sheet.getRange(line, 6).getDisplayValue();
+    var title = sheet.getRange(line, 8).getValue();
+    var name = sheet.getRange(line, 2).getValue();
+    var html = "<!-- " + publishDate + " " + title + " " + name + " -->\n"; // ヘッダHTMLコメント行
+
+    var musicId = sheet.getRange(line, 9).getValue().replace("https://www.youtube.com/watch?v=", "");
+    html += HTML_PREFIX_URL_YOUTUBE_MUSIC + musicId;
+    html += HTML_PREFIX_TITLE + title;
+    html += HTML_PREFIX_NAME + name;
+
+    var urlReality = sheet.getRange(line, 3).getValue();
+    if (urlReality.indexOf("http") < 0) {
+      urlReality = ""; // イレギュラー表示内容の際にはURLを空にする
+    }
+    html += HTML_PREFIX_URL_REALITY + urlReality;
+
+    var urlTwitter = sheet.getRange(line, 4).getValue();
+    if (urlTwitter.indexOf("http") < 0) {
+      urlTwitter = ""; // イレギュラー表示内容の際にはURLを空にする
+    }
+    html += HTML_PREFIX_URL_TWITTER + urlTwitter;
+
+    html += HTML_PREFIX_URL_YOUTUBE_CHANNEL + sheet.getRange(line, 5).getValue();
+    html += HTML_PREFIX_PUBLISH_DATE + publishDate;
+    html += HTML_SUFFIX;
+    sheet.getRange(line, 13).setValue(html);
+  }
+}
+
+// 選択セルの表示値を文字列連結して特定セルに書き込む
+function concatRangeTextTo2N() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var values = sheet.getActiveRange().getDisplayValues();
+  var text = "";
+  for (var i = 0; i < values.length; i++) {
+    text += values[i];
+  }
+  sheet.getRange("2N").setValue(text);
 }
 
 // channelIdからvideoリストをつくる
@@ -183,3 +251,4 @@ function mylog(value) {
   var sheet = ss.getSheetByName("log");
   sheet.appendRow([new Date(), value]);
 }
+
