@@ -25,7 +25,7 @@ function onOpen() {
 // 13:html
 function generateMusicHtml() {
   // 1曲分のcolな部分HTML文字列の構成要素
-  const HTML_PREFIX_URL_YOUTUBE_MUSIC = "<div class=\"col\"> <div class=\"card shadow-sm\"> <div class=\"ratio ratio-16x9\"> <iframe src=\"https://www.youtube.com/embed/";
+  const HTML_PREFIX_URL_YOUTUBE_MUSIC = "<div class=\"col\"> <div class=\"card shadow-sm\"> <div class=\"ratio ratio-16x9\"> <iframe loading=\"lazy\" src=\"https://www.youtube.com/embed/";
   const HTML_PREFIX_TITLE = "?controls=0\" frameborder=\"0\" allow=\"accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture\" allowfullscreen></iframe> </div> <div class=\"card-body\"><p class=\"card-text\">";
   const HTML_PREFIX_NAME = "<br><small class=\"text-muted\">";
   const HTML_PREFIX_URL_REALITY = "</small></p> <div class=\"d-flex justify-content-between align-items-center\"> <div class=\"btn-group\">\n<a href=\"";
@@ -77,7 +77,7 @@ function concatRangeTextTo2N() {
   for (var i = 0; i < values.length; i++) {
     text += values[i];
   }
-  sheet.getRange("2N").setValue(text);
+  sheet.getRange("N2").setValue(text);
 }
 
 // channelIdからvideoリストをつくる
