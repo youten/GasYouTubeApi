@@ -128,13 +128,15 @@ function listByChannelorPlaylistId() {
 function appendLines(sheet, startLine, videoItems) {
   var line = startLine;
   for (var j = 0; j < videoItems.length; j++) {
+    // 4列目のセルが空じゃない際には上書きしないで次の行にする
+    while (!sheet.getRange(line, 4).isBlank()) {
+      line++;
+    }
+
     var video = videoItems[j];
     if (video != null) {
-      var public = true;
-      if (video.status != null && video.status.privacyStatus == "private") {
-        public = false;
-      }
-      if (public) {
+      if (video.status == null || video.status.privacyStatus != "private") {
+        // private属性が確認できない、publicの際のみappendする
         var result = appendLine(sheet, line, video);
         if (result) {
           line++;
