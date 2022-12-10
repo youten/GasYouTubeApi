@@ -115,6 +115,7 @@ function listByChannelId() {
   // @から始まる際にはChannelIdじゃなくてハンドルとして検索からChannelId化を試みる
   if (value.startsWith("@")) {
     value = getChannelIdFromKeyword(value);
+    sheet.getActiveCell().setValue(value); // update
   }
 
   appendLines(sheet, 2, getVideosFromChannel(value));
