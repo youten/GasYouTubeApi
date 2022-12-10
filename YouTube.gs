@@ -14,6 +14,31 @@ function onOpen() {
   SpreadsheetApp.getActiveSpreadsheet().addMenu("YouTube", entries);
 }
 
+// ハンドル（@なんたら）からキーワードでチャンネル検索して先頭のものを返す
+function getChannelIdFromKeyword(value){
+  try {
+    var res = YouTube.Search.list('snippet',{
+      maxResults: 10,
+      type: `channel`,
+      q: value
+    });
+    
+    mylog("q=" + value + " length=" + res.items.length);
+    for (var i = 0; i < res.items.length; i++) {
+      mylog("[" + i + "] channelId=" + res.items[i].id.channelId
+       + " title=" + res.items[i].snippet.channelTitle
+       + " description=" + res.items[i].snippet.description);
+    }
+
+    if (res.items.length > 0) {
+      return res.items[0].id.channelId;
+    }
+  } catch(e) {
+    // do nothing
+  }
+  return null;
+}
+
 // 選択された行からHTMLを1セル生成する
 // 8:urlYouTubeMusic
 // 2:name
@@ -80,12 +105,17 @@ function concatRangeTextTo2N() {
   sheet.getRange("N2").setValue(text);
 }
 
-// channelIdからvideoリストをつくる
-// アクティブなセルに書かれた文字列をchannelIdとして読み取り、2行目からリストを生成する。
+// channelIdまたはハンドルから検索結果でvideoリストをつくる
+// アクティブなセルに書かれた文字列をchannelIdまたはハンドルとして読み取り、2行目からリストを生成する。
 function listByChannelId() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var value = sheet.getActiveCell().getValue();
   mylog("activeCellValue=" + value);
+
+  // @から始まる際にはChannelIdじゃなくてハンドルとして検索からChannelId化を試みる
+  if (value.startsWith("@")) {
+    value = getChannelIdFromKeyword(value);
+  }
 
   appendLines(sheet, 2, getVideosFromChannel(value));
 }
@@ -180,10 +210,10 @@ function appendLine(sheet, line, video) {
     
 function getVideosFromChannel(channelId, publishedAfterDate) {
   var nextToken = "";
-  var items = []
+  var items = [];
 
   var publishedAfter = "2000-01-01T00:00:00Z";
-  if (publishedAfterDate != null){
+  if (publishedAfterDate != null) {
     publishedAfter = publishedAfterDate.toISOString();
     mylog("publishedAfter=" + publishedAfter);
   }
@@ -249,6 +279,7 @@ function getVideosFromPlaylistId(playlistId, publishedAfterDate) {
 
 // debug用。openByIdの引数は書き込み権限のある（本スクリプトを動作させる）スプレッドシートのIDに書き換えて使う。
 function mylog(value) {
+  console.log(value);
   var ss = SpreadsheetApp.openById("1wKa3VCHcaDbEfxKouLfGT7m42VRUS7cGB1JfhBHfPY4");
   var sheet = ss.getSheetByName("log");
   sheet.appendRow([new Date(), value]);
