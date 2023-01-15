@@ -15,7 +15,7 @@ function onOpen() {
 }
 
 // ハンドル（@なんたら）からキーワードでチャンネル検索して先頭のものを返す
-function getChannelIdFromKeyword(value){
+function getChannelIdFromKeyword(value) {
   try {
     var res = YouTube.Search.list('snippet',{
       maxResults: 10,
@@ -118,7 +118,7 @@ function listByChannelId() {
     sheet.getActiveCell().setValue(value); // update
   }
 
-  appendLines(sheet, 2, getVideosFromChannel(value));
+  appendLines(sheet, 2, getVideosFromChannel(value), {});
 }
 
 // playlistIdからvideoリストをつくる
@@ -128,35 +128,46 @@ function listByPlaylistId() {
   var value = sheet.getActiveCell().getValue();
   mylog("activeCellValue=" + value);
 
-  appendLines(sheet, 2, getVideosFromPlaylistId(value));
+  appendLines(sheet, 2, getVideosFromPlaylistId(value), {});
 }
 
-// channdlIdまたはPlaylistIdのリストからvideoリストをつくる
-// アクティブなセルの文字列リストを読み取り、2行目からリストを生成する
+// channdlIdまたはPlaylistIdのリストから10日以内のvideoリストをつくる
+// アクティブなセルの文字列リストを読み取り、"output"シートの2行目から結果を書き込む
 // "PL"から始まる文字列の際にPlaylistIdと判断し、それ以外をchannelIdとする
 function listByChannelorPlaylistId() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var values = sheet.getActiveRange().getValues();
+  var activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var outputSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("output");
+  var values = activeSheet.getActiveRange().getValues();
   mylog("activeCellValues.Count=" + values.length);
 
   var line = 2;
   for (var i = 0; i < values.length; i++) {
-    var id = values[i] + "";
+    var id = values[i][0] + ""; // 選択したセルの左端がidとする
     mylog("id=" + id);
+    var artist = {};
+    if (values[i].length >= 5) {
+      // 選択したセルの横幅が4以上の際、id, name, REALITY profile URL, Twitter URL, YouTube ch URLとする
+      artist["id"] = id;
+      artist["name"] = values[i][1];
+      artist["reality_url"] = values[i][2];
+      artist["twitter_url"] = values[i][3];
+      artist["youtube_url"] = values[i][4];
+      mylog("name=" + artist["name"] + " reality=" + artist["reality_url"] + " twitter=" + artist["twitter_url"] + " youtube=" + artist["youtube_url"]);
+    }
 
     // 最近10daysに絞る
     var date10DaysAgo = new Date();
     date10DaysAgo.setDate(date10DaysAgo.getDate() - 10);
 
     if (id.indexOf("PL") === 0) { // Playlist id
-      line = appendLines(sheet, line, getVideosFromPlaylistId(id, date10DaysAgo));
+      line = appendLines(outputSheet, line, getVideosFromPlaylistId(id, date10DaysAgo), artist);
     } else { // Channel id
-      line = appendLines(sheet, line, getVideosFromChannel(id, date10DaysAgo));
+      line = appendLines(outputSheet, line, getVideosFromChannel(id, date10DaysAgo), artist);
     }
   }
 }
 
-function appendLines(sheet, startLine, videoItems) {
+function appendLines(sheet, startLine, videoItems, artist) {
   var line = startLine;
   for (var j = 0; j < videoItems.length; j++) {
     // 4列目のセルが空じゃない際には上書きしないで次の行にする
@@ -168,7 +179,7 @@ function appendLines(sheet, startLine, videoItems) {
     if (video != null) {
       if (video.status == null || video.status.privacyStatus != "private") {
         // private属性が確認できない、publicの際のみappendする
-        var result = appendLine(sheet, line, video);
+        var result = appendLine(sheet, line, video, artist);
         if (result) {
           line++;
         }
@@ -178,7 +189,7 @@ function appendLines(sheet, startLine, videoItems) {
   return line;
 }
 
-function appendLine(sheet, line, video) {
+function appendLine(sheet, line, video, artist) {
   var snippet = video.snippet;
   if (!snippet.thumbnails["default"] || !snippet.thumbnails["default"].url || snippet.title == "Deleted video") {
     return false;
@@ -196,16 +207,22 @@ function appendLine(sheet, line, video) {
     date = Utilities.formatDate(new Date(video.contentDetails.videoPublishedAt), "JST", "yyyy/MM/dd");
     videoId = video.contentDetails.videoId;
   }
-  var col = 4;
-  sheet.getRange(line, col).setValue(date);
+
+  if (artist != null) {
+    sheet.getRange(line, 1).setValue(artist["name"]);
+    sheet.getRange(line, 2).setValue(artist["reality_url"]);
+    sheet.getRange(line, 3).setValue(artist["twitter_url"]);
+    sheet.getRange(line, 4).setValue(artist["youtube_url"]);
+  }
+  sheet.getRange(line, 5).setValue(date);
   var imageUrl = snippet.thumbnails["default"].url;
-  sheet.getRange(line, col + 1).setValue("=IMAGE(\"" + imageUrl + "\")"); // セル内に画像を貼る
-  sheet.getRange(line, col + 2).setValue(snippet.title);
-  sheet.getRange(line, col + 3).setValue("https://www.youtube.com/watch?v=" + videoId);
-  // note
+  sheet.getRange(line, 6).setValue("=IMAGE(\"" + imageUrl + "\")"); // セル内に画像を貼る
+  sheet.getRange(line, 7).setValue(snippet.title);
+  sheet.getRange(line, 8).setValue("https://www.youtube.com/watch?v=" + videoId);
+  // 9 note
   var nowDate = Utilities.formatDate(new Date(), "JST", "yyyy/MM/dd");
-  sheet.getRange(line, col + 5).setValue(nowDate); // register date
-  sheet.getRange(line, col + 6).setValue("\n\n\n\n"); // dummy \n x
+  sheet.getRange(line, 10).setValue(nowDate); // register date
+  sheet.getRange(line, 11).setValue("\n\n\n\n"); // dummy \n x4
   return true;
 }
     
@@ -285,4 +302,3 @@ function mylog(value) {
   var sheet = ss.getSheetByName("log");
   sheet.appendRow([new Date(), value]);
 }
-
